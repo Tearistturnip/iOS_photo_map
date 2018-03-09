@@ -9,16 +9,22 @@
 import UIKit
 import MapKit
 
-class PhotoMapViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate, LocationsViewControllerDelegate  {
+class PhotoMapViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate, LocationsViewControllerDelegate, MKMapViewDelegate  {
     
     
     @IBOutlet weak var sanFranMapView: MKMapView!
+    var savedPhoto: UIImage!
+    var savedPhotoAnnotation: PhotoAnnotation!
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        sanFranMapView.delegate = self
+        
         let sfRegion = MKCoordinateRegionMake(CLLocationCoordinate2DMake(37.783333, -122.416667),
                                               MKCoordinateSpanMake(0.1, 0.1))
         sanFranMapView.setRegion(sfRegion, animated: false)
+        
         
 
         // Do any additional setup after loading the view.
@@ -52,6 +58,7 @@ class PhotoMapViewController: UIViewController, UIImagePickerControllerDelegate,
         let originalImage = info[UIImagePickerControllerOriginalImage] as! UIImage
         let editedImage = info[UIImagePickerControllerEditedImage] as! UIImage
         
+        savedPhoto = editedImage
         // Do something with the images (based on your use case)
         
         
@@ -61,16 +68,19 @@ class PhotoMapViewController: UIViewController, UIImagePickerControllerDelegate,
         }
     }
     func locationsPickedLocation(controller: LocationsViewController, latitude: NSNumber, longitude: NSNumber) {
-       
         let locationCoordinate = CLLocationCoordinate2DMake(CLLocationDegrees(latitude), CLLocationDegrees(longitude))
-        let annotation = MKPointAnnotation()
+        let annotation = PhotoAnnotation()
         annotation.coordinate = locationCoordinate
-        annotation.title = "Picture!"
-       sanFranMapView.addAnnotation(annotation)
-       self.navigationController?.popViewController(animated: true)
+        annotation.photo = savedPhoto
+        sanFranMapView.addAnnotation(annotation)
+       
+        self.navigationController?.popToRootViewController(animated: true)
+        
+        
+        
     }
     
-    func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         let reuseID = "myAnnotationView"
         
         var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseID)
@@ -78,16 +88,36 @@ class PhotoMapViewController: UIViewController, UIImagePickerControllerDelegate,
             annotationView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: reuseID)
             annotationView!.canShowCallout = true
             annotationView!.leftCalloutAccessoryView = UIImageView(frame: CGRect(x:0, y:0, width: 50, height:50))
+            let myButton = UIButton(type: .detailDisclosure)
+            myButton.addTarget(self, action: #selector(goToFull), for: UIControlEvents.touchUpInside)
+            
+            annotationView?.rightCalloutAccessoryView = UIButton(type: .detailDisclosure)
+            
         }
+       
+        var resizeRenderImageView = UIImageView(frame: CGRect(x:0, y:0, width:45, height:45))
+        resizeRenderImageView.layer.borderColor = UIColor.white.cgColor
+        resizeRenderImageView.layer.borderWidth = 3.0
+        resizeRenderImageView.contentMode = UIViewContentMode.scaleAspectFill
+        resizeRenderImageView.image = (annotation as? PhotoAnnotation)?.photo
         
+        UIGraphicsBeginImageContext(resizeRenderImageView.frame.size)
+        resizeRenderImageView.layer.render(in: UIGraphicsGetCurrentContext()!)
+        var thumbnail = UIGraphicsGetImageFromCurrentImageContext()
         let imageView = annotationView?.leftCalloutAccessoryView as! UIImageView
-        imageView.image = UIImage(named: "camera")
+        imageView.image = thumbnail
+      
         
         return annotationView
     }
     
+    func goToFull(sender: UIButton!){
+        self.performSegue(withIdentifier: "fullImageSegue", sender: Any?)
+        
+    }
     
-
+    
+    
     
     // MARK: - Navigation
 
@@ -102,3 +132,14 @@ class PhotoMapViewController: UIViewController, UIImagePickerControllerDelegate,
     
 
 }
+
+class PhotoAnnotation: NSObject, MKAnnotation {
+    var coordinate: CLLocationCoordinate2D = CLLocationCoordinate2DMake(0, 0)
+    var photo: UIImage!
+    
+    var title: String? {
+        return "\(coordinate.latitude)"
+    }
+}
+
+
